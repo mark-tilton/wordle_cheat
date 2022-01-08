@@ -1,7 +1,8 @@
 import random
 
 from tqdm import tqdm
-from collections import Counter, namedtuple
+from collections import Counter
+from joblib import Parallel, delayed
 
 # Get the master list of words
 with open("words.txt", mode='r') as f:
@@ -106,7 +107,9 @@ def check_word(word, found_letters, loose_letters, invalid_letters):
     
     return True
 
-# difficulty_spread=Counter({4: 1549, 5: 1456, 6: 902, 3: 753, 7: 489, 8: 272, 9: 139, 2: 97, 10: 59, 11: 25, 12: 8, 13: 5, 14: 1, 1: 1, 15: 1})
+# Pick the best word based on global letter scores.
+# Picks the highest scoring word that is still possible and hasn't already been guessed
+# Only provides valid guesses
 def pick_best_word_v1(found_letters, loose_letters, invalid_letters, guesses):
     for word in sorted_words:
         if word in guesses:
@@ -114,28 +117,34 @@ def pick_best_word_v1(found_letters, loose_letters, invalid_letters, guesses):
         if check_word(word, found_letters, loose_letters, invalid_letters):
             return word
 
-# The goal should actually be to pick a guess based on the maximum number of words that can be ruled out
+# Same as V1 but recalculates letter scores based on the remaining words
 # 1. Get all the remaining valid words
 # 2. Recalculate letter scores for the remaining letters
-# 3. A good guess should:
-#       a. Use found spaces to explore remaining letters. Remaining letters should (preferrably) be explored
-#          in the order of their prevalence in the remaining words.
-#       b. Explore new positions for loose letters. This heuristic should stop us from getting stuck in loops
-#          when an anagram is found.
+# Only provides valid guesses
 def pick_best_word_v2(found_letters, loose_letters, invalid_letters, guesses):
     valid_words = [word for word in words 
         if check_word(word, found_letters, loose_letters, invalid_letters) 
         and word not in guesses]
     letter_score = get_letter_scores(valid_words)
-    return max((word for word in words if word not in guesses), 
+    return max((word for word in valid_words if word not in guesses), 
         key=lambda word: get_word_score(word, letter_score))
 
+# Picks a guess based on the following heuristic
+# 1. Use found spaces to explore remaining letters. Remaining letters should (preferrably) be explored
+#    in the order of their prevalence in the remaining words.
+# 2. Explore new positions for loose letters. This heuristic should stop us from getting stuck in loops
+#    when an anagram is found.
+def pick_best_word_v3(found_letters, loose_letters, invalid_letters, guesses):
+    pass
+
 def evaluate_strategy(strategy):
-    word_difficulty = {word:play_game(goal_word=word, input_source=strategy) for word in tqdm(words)}
-    difficulty_spread = Counter(word_difficulty.values())
-    average_turns = sum(turns * count for turns, count in difficulty_spread.items()) / len(words)
+    word_difficulty = Parallel(n_jobs=16)(delayed(play_game)(goal_word=word, input_source=strategy) for word in tqdm(words))
+    difficulty_spread = Counter(word_difficulty)
+    average_turns = sum(word_difficulty) / len(words)
+    num_solved = len([turn_count for turn_count in word_difficulty if turn_count <= 6])
     print(f"{difficulty_spread=}")
     print(f"{average_turns=}")
+    print(f"{num_solved=}")
 
 print("V1")
 evaluate_strategy(pick_best_word_v1)
