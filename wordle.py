@@ -10,25 +10,8 @@ with open("words.txt", mode='r') as f:
 words = [word.strip() for word in words]
 
 
-def get_letter_scores(words):
-    all_letters = (letter for word in words for letter in word)
-    return Counter(all_letters)
-
-
-def get_word_score(word, letter_score):
-    return sum(letter_score[letter] for letter in set(word))
-
-
-global_letter_score = get_letter_scores(words)
-global_word_score = {word: get_word_score(
-    word, global_letter_score) for word in words}
-sorted_words = sorted(
-    global_word_score, key=global_word_score.get, reverse=True)
-
-# Calculate the number of turns it takes to get to word from start
-
-
-def play_game(goal_word, input_source, display=lambda _="": ()):
+def play_game(goal_word, input_source=input, display=lambda _="": ()):
+    # Simulates a game played with a given strategy
     turn = 0
     found_letters = [None] * 5
     loose_letters = []
@@ -115,25 +98,43 @@ def check_word(word, found_letters, loose_letters, invalid_letters):
 
     return True
 
-# Pick the best word based on global letter scores.
-# Picks the highest scoring word that is still possible and hasn't already been guessed
-# Only provides valid guesses
+
+def get_letter_scores(words):
+    all_letters = (letter for word in words for letter in word)
+    return Counter(all_letters)
+
+
+def get_word_score(word, letter_score):
+    return sum(letter_score[letter] for letter in set(word))
+
+
+global_letter_score = get_letter_scores(words)
+global_word_score = {word: get_word_score(
+    word, global_letter_score) for word in words}
+sorted_words = sorted(
+    global_word_score, key=global_word_score.get, reverse=True)
 
 
 def pick_best_word_v1(found_letters, loose_letters, invalid_letters, guesses):
+    """
+    Pick the best word based on global letter scores.  
+    Picks the highest scoring word that is still possible and hasn't already been guessed
+    Only provides valid guesses
+    """
     for word in sorted_words:
         if word in guesses:
             continue
         if check_word(word, found_letters, loose_letters, invalid_letters):
             return word
 
-# Same as V1 but recalculates letter scores based on the remaining words
-# 1. Get all the remaining valid words
-# 2. Recalculate letter scores for the remaining letters
-# Only provides valid guesses
-
 
 def pick_best_word_v2(found_letters, loose_letters, invalid_letters, guesses):
+    """
+    Same as V1 but recalculates letter scores based on the remaining words
+    1. Get all the remaining valid words
+    2. Recalculate letter scores for the remaining letters
+    Only provides valid guesses
+    """
     valid_words = [word for word in words
                    if check_word(word, found_letters, loose_letters, invalid_letters)
                    and word not in guesses]
@@ -141,14 +142,15 @@ def pick_best_word_v2(found_letters, loose_letters, invalid_letters, guesses):
     return max((word for word in valid_words if word not in guesses),
                key=lambda word: get_word_score(word, letter_score))
 
-# Picks a guess based on the following heuristic
-# 1. Use found spaces to explore remaining letters. Remaining letters should (preferrably) be explored
-#    in the order of their prevalence in the remaining words.
-# 2. Explore new positions for loose letters. This heuristic should stop us from getting stuck in loops
-#    when an anagram is found.
-
 
 def pick_best_word_v3(found_letters, loose_letters, invalid_letters, guesses):
+    """
+    Picks a guess based on the following heuristic
+    1. Use found spaces to explore remaining letters. Remaining letters should (preferrably) be explored
+       in the order of their prevalence in the remaining words.
+    2. Explore new positions for loose letters. This heuristic should stop us from getting stuck in loops
+       when an anagram is found.
+    """
     pass
 
 
