@@ -187,24 +187,39 @@ def pick_best_word_v3(game_state: GameState):
     valid_letter_score = get_letter_scores(valid_words)
     found_letter_counter = Counter(game_state.found_letters)
 
+    # A penalty applied to repeated letters
+    REPEAT_PENALTY = 0.1
+
+    # A penalty applied to letters when the best case scenario is finding a loose letter
+    LOOSE_ONLY_PENALTY = 1
+
+    # A penalty applied to letters that are invalid
+    INVALID_PENALTY = 0.1
+
+    # A penalty applied to letters that have already been found in the position they are being checked in
+    FOUND_PENALTY = 1
+
     def score_word(word):
         score = 0
+        scored_letters = []
         for i, (wl, fl) in enumerate(zip(word, game_state.found_letters)):
+            letter_score = valid_letter_score[wl]
+
             # If we've already found this letter in this exact spot we will learn nothing new by
             # providing this letter again.
             if wl == fl:
-                continue
+                letter_score *= FOUND_PENALTY
 
             # If we know this letter is invalid, we can move on.
             if wl in game_state.invalid_letters:
-                continue
+                letter_score *= INVALID_PENALTY
 
             # If we've already found all the occurences of this letter, there is no need to try it
             if wl in game_state.found_letters:
                 max_attempts = max(count_letter(word, wl)
                                    for word in game_state.guesses)
                 if max_attempts > found_letter_counter[wl] and wl not in game_state.loose_letters:
-                    continue
+                    letter_score *= INVALID_PENALTY
 
             # If this is a loose letter and it's already been tried in this spot then we will learn
             # nothing new by providing it in this spot again.
@@ -215,18 +230,21 @@ def pick_best_word_v3(game_state: GameState):
                         letter_tried = True
                         break
                 if letter_tried:
-                    continue
+                    letter_score *= INVALID_PENALTY
 
-            # If all the checks above pass, score this letter
-            letter_score = valid_letter_score[wl]
+            letter_score *= REPEAT_PENALTY ** count_letter(scored_letters, wl)
+            if fl != None:
+                letter_score *= LOOSE_ONLY_PENALTY
+
             score += letter_score
+            scored_letters += wl
         return score
 
     # Return the word with the highest score
     return max(words, key=score_word)
 
 
-def evaluate_strategy(strategy):
+def evaluate_strategy(strategy, words=words):
     word_difficulty = Parallel(n_jobs=16)(delayed(play_game)(
         goal_word=word, input_source=strategy) for word in tqdm(words))
     difficulty_spread = Counter(word_difficulty)
@@ -245,7 +263,7 @@ def find_problematic_word(strategy):
             return word
 
 
-play_game("words", pick_best_word_v3, print)
+# play_game("words", pick_best_word_v3, print)
 
 # print("V1")
 # evaluate_strategy(pick_best_word_v1)
@@ -253,8 +271,8 @@ play_game("words", pick_best_word_v3, print)
 # print("V2")
 # evaluate_strategy(pick_best_word_v2)
 
-# print("V3")
-# evaluate_strategy(pick_best_word_v3)
+print("V3")
+evaluate_strategy(pick_best_word_v3)
 
 # problem_word = find_problematic_word(pick_best_word_v3)
 # print(problem_word)
