@@ -27,6 +27,42 @@ class GameState:
     def turns(self):
         return len(self.guesses)
 
+    def add_guess(self, guess_word, goal_word):
+        self.guesses.append(guess_word)
+
+        # Find exact matches
+        for i, (guess_letter, goal_letter) in enumerate(zip(guess_word, goal_word)):
+            if guess_letter == goal_letter:
+                self.found_letters[i] = guess_letter
+                if guess_letter in self.loose_letters:
+                    self.loose_letters.remove(guess_letter)
+
+        # Create a pool of remaining letters to match against
+        goal_letters = [l for l in goal_word]
+        guess_letters = [l for l in guess_word]
+        for i, found_letter in enumerate(self.found_letters):
+            if found_letter != None:
+                goal_letters.remove(found_letter)
+                if guess_word[i] == found_letter:
+                    guess_letters.remove(found_letter)
+
+        # Remove the existing letters from the loose pool to avoid repeats
+        for l in guess_letters:
+            if l in self.loose_letters:
+                self.loose_letters.remove(l)
+
+        # Search for loose letters, move them from the goal word into
+        # the loose letter pool
+        for l in guess_letters:
+            if l in goal_letters:
+                self.loose_letters.append(l)
+                goal_letters.remove(l)
+
+        # Add uniquely invalid letters to the invalid pool
+        for l in guess_word:
+            if l not in goal_word:
+                self.invalid_letters.add(l)
+
 
 MAX_TURNS = 16
 
@@ -45,45 +81,15 @@ def play_game(goal_word, input_source=input, display=lambda _="": ()):
 
         # Make a guess
         guess_word = input_source(game_state)
-        game_state.guesses.append(guess_word)
         display(f"Guessed {guess_word}")
         if guess_word == goal_word:
             display(f"The word was {goal_word}!")
             return turn
         display()
 
-        # Find exact matches
-        for i, (guess_letter, goal_letter) in enumerate(zip(guess_word, goal_word)):
-            if guess_letter == goal_letter:
-                game_state.found_letters[i] = guess_letter
-                if guess_letter in game_state.loose_letters:
-                    game_state.loose_letters.remove(guess_letter)
+        # Add guess to game state
+        game_state.add_guess(guess_word, goal_word)
 
-        # Create a pool of remaining letters to match against
-        goal_letters = [l for l in goal_word]
-        guess_letters = [l for l in guess_word]
-        for i, found_letter in enumerate(game_state.found_letters):
-            if found_letter != None:
-                goal_letters.remove(found_letter)
-                if guess_word[i] == found_letter:
-                    guess_letters.remove(found_letter)
-
-        # Remove the existing letters from the loose pool to avoid repeats
-        for l in guess_letters:
-            if l in game_state.loose_letters:
-                game_state.loose_letters.remove(l)
-
-        # Search for loose letters, move them from the goal word into
-        # the loose letter pool
-        for l in guess_letters:
-            if l in goal_letters:
-                game_state.loose_letters.append(l)
-                goal_letters.remove(l)
-
-        # Add uniquely invalid letters to the invalid pool
-        for l in guess_word:
-            if l not in goal_word:
-                game_state.invalid_letters.add(l)
     return turn
 
 
@@ -187,14 +193,15 @@ def evaluate_strategy(strategy, words=words):
 def find_problematic_word(strategy):
     for word in words:
         turns = play_game(word, strategy)
-        if turns > 6:
+        if turns > 10:
             return word
 
-
-play_game("these", pick_best_word_v1, print)
 
 print("V1")
 evaluate_strategy(pick_best_word_v1)
 
-print("V2")
-evaluate_strategy(pick_best_word_v2)
+# print("V2")
+# evaluate_strategy(pick_best_word_v2)
+
+# print(find_problematic_word(pick_best_word_v2))
+# play_game("frank", pick_best_word_v1, print)
