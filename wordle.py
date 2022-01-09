@@ -27,11 +27,14 @@ class GameState:
         return len(self.guesses)
 
 
+MAX_TURNS = 16
+
+
 def play_game(goal_word, input_source=input, display=lambda _="": ()):
     # Simulates a game played with a given strategy
     turn = 0
     game_state = GameState()
-    while turn < 1000:
+    while turn < MAX_TURNS:
         turn += 1
 
         # Print the current state
@@ -83,7 +86,7 @@ def play_game(goal_word, input_source=input, display=lambda _="": ()):
     return turn
 
 
-def check_word(word, game_state):
+def check_word(word, game_state: GameState):
     # Has the word already been guessed?
     if word in game_state.guesses:
         return False
@@ -143,9 +146,6 @@ def pick_best_word_v1(game_state):
     Only provides valid guesses
     """
     return next(word for word in sorted_words if check_word(word, game_state))
-    # for word in sorted_words:
-    #     if check_word(word, game_state):
-    #         return word
 
 
 def pick_best_word_v2(game_state):
@@ -161,15 +161,69 @@ def pick_best_word_v2(game_state):
                key=lambda word: get_word_score(word, letter_score))
 
 
-def pick_best_word_v3(game_state):
+def count_letter(word, letter):
+    letter_count = 0
+    for l in word:
+        if l == letter:
+            letter_count += 1
+    return letter_count
+
+
+def pick_best_word_v3(game_state: GameState):
     """
     Picks a guess based on the following heuristic
     1. Use found spaces to explore remaining letters. Remaining letters should (preferrably) be explored
        in the order of their prevalence in the remaining words.
     2. Explore new positions for loose letters. This heuristic should stop us from getting stuck in loops
        when an anagram is found.
+    Will provide invalid exploratory guesses
     """
-    pass
+    # If there is only one valid word left, return it.
+    valid_words = get_valid_words(game_state)
+    if len(valid_words) == 1:
+        return valid_words[0]
+
+    # Define the heuristic
+    valid_letter_score = get_letter_scores(valid_words)
+    found_letter_counter = Counter(game_state.found_letters)
+
+    def score_word(word):
+        score = 0
+        for i, (wl, fl) in enumerate(zip(word, game_state.found_letters)):
+            # If we've already found this letter in this exact spot we will learn nothing new by
+            # providing this letter again.
+            if wl == fl:
+                continue
+
+            # If we know this letter is invalid, we can move on.
+            if wl in game_state.invalid_letters:
+                continue
+
+            # If we've already found all the occurences of this letter, there is no need to try it
+            if wl in game_state.found_letters:
+                max_attempts = max(count_letter(word, wl)
+                                   for word in game_state.guesses)
+                if max_attempts > found_letter_counter[wl] and wl not in game_state.loose_letters:
+                    continue
+
+            # If this is a loose letter and it's already been tried in this spot then we will learn
+            # nothing new by providing it in this spot again.
+            if wl in game_state.loose_letters:
+                letter_tried = False
+                for guess in game_state.guesses:
+                    if guess[i] == wl:
+                        letter_tried = True
+                        break
+                if letter_tried:
+                    continue
+
+            # If all the checks above pass, score this letter
+            letter_score = valid_letter_score[wl]
+            score += letter_score
+        return score
+
+    # Return the word with the highest score
+    return max(words, key=score_word)
 
 
 def evaluate_strategy(strategy):
@@ -180,17 +234,28 @@ def evaluate_strategy(strategy):
     num_solved = len(
         [turn_count for turn_count in word_difficulty if turn_count <= 6])
     print(f"{difficulty_spread=}")
-    print(f"{average_turns=}")
+    print(f"{average_turns=:.2f}")
     print(f"{num_solved=} ({num_solved / len(words) * 100:.1f}%)")
 
 
-# play_game("slump", pick_best_word_v1, print)
+def find_problematic_word(strategy):
+    for word in words:
+        turns = play_game(word, strategy)
+        if turns > 6:
+            return word
 
-print("V1")
-evaluate_strategy(pick_best_word_v1)
 
-print("V2")
-evaluate_strategy(pick_best_word_v2)
+play_game("words", pick_best_word_v3, print)
+
+# print("V1")
+# evaluate_strategy(pick_best_word_v1)
+
+# print("V2")
+# evaluate_strategy(pick_best_word_v2)
 
 # print("V3")
 # evaluate_strategy(pick_best_word_v3)
+
+# problem_word = find_problematic_word(pick_best_word_v3)
+# print(problem_word)
+# play_game(problem_word, pick_best_word_v3, print)
