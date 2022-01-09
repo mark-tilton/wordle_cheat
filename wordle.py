@@ -1,3 +1,4 @@
+import argparse
 import random
 
 from tqdm import tqdm
@@ -5,7 +6,7 @@ from collections import Counter
 from joblib import Parallel, delayed
 from typing import List, Set
 from dataclasses import dataclass, field
-from enum import Enum
+
 
 # Get the master list of words
 with open("words.txt", mode='r') as f:
@@ -67,7 +68,7 @@ class GameState:
 MAX_TURNS = 16
 
 
-def play_game(goal_word, input_source=input, display=lambda _="": ()):
+def play_game(goal_word, input_source, display=lambda _="": ()):
     # Simulates a game played with a given strategy
     turn = 0
     game_state = GameState()
@@ -197,11 +198,89 @@ def find_problematic_word(strategy):
             return word
 
 
-print("V1")
-evaluate_strategy(pick_best_word_v1)
+def parse_strategy(args):
+    strategy = None
+    if args.strategy.upper() == "V1":
+        strategy = pick_best_word_v1
+    if args.strategy.upper() == "V2":
+        strategy = pick_best_word_v2
+    if strategy == None:
+        raise Exception("Must select a valid strategy.")
+    return strategy
 
-# print("V2")
-# evaluate_strategy(pick_best_word_v2)
 
-# print(find_problematic_word(pick_best_word_v2))
-# play_game("frank", pick_best_word_v1, print)
+def evaluate(args):
+    strategy = parse_strategy(args)
+    evaluate_strategy(strategy)
+
+
+def play(args):
+    def make_guess(game_state):
+        guess = ""
+        while True:
+            guess = input("Guess a word: ")
+            if guess not in words:
+                print("Guess must be a valid word, try again.")
+                continue
+            if args.hardmode and not check_word(guess, game_state):
+                print("In hard mode every guess must be a valid answer, try again.")
+                continue
+            break
+        return guess
+    play_game(random.sample(words, 1)[0], make_guess, print)
+
+
+def cheat(args):
+    strategy = parse_strategy(args)
+    game_state = GameState()
+    while True:
+        guess = strategy(game_state)
+        print(f"Try word: {guess}")
+        loose_letters = input(
+            "Please enter ALL loose letters separated by spaces: ")
+        found_letters = input(
+            "Please input the word so far using \"-\" in place of missing letters: ")
+        game_state.guesses.append(guess)
+        game_state.loose_letters = loose_letters.split(" ")
+        # If split returns an empty string, remove it from the loose letters
+        if "" in game_state.loose_letters:
+            game_state.loose_letters.remove("")
+        for i, l in enumerate(found_letters):
+            if l != "-":
+                game_state.found_letters[i] = l
+        for word in game_state.guesses:
+            for l in word:
+                if l not in game_state.found_letters and l not in game_state.loose_letters:
+                    game_state.invalid_letters.add(l)
+        if all(game_state.found_letters):
+            print("We did it!")
+            return
+        print(game_state)
+
+
+parser = argparse.ArgumentParser()
+subparsers = parser.add_subparsers()
+
+# Define the evaluate parser
+evaluate_parser = subparsers.add_parser(
+    "evaluate", help="Evaluate a given strategy on all known words")
+evaluate_parser.add_argument("--strategy", help="The strategy to be evaluated")
+evaluate_parser.set_defaults(func=evaluate)
+
+# Define the parser for playing a game
+play_parser = subparsers.add_parser(
+    "play", help="Play a game with a random word")
+play_parser.add_argument(
+    "--hardmode", help="Play the game on hard mode. In hard mode every guess must be a valid answer.", action='store_true')
+play_parser.set_defaults(func=play)
+
+# Define the parser for cheating
+cheat_parser = subparsers.add_parser(
+    "cheat", help="Interactively solve an unknown word with the given strategy")
+cheat_parser.add_argument(
+    "--strategy", help="The strategy to use when solving the word", default="V2")
+cheat_parser.set_defaults(func=cheat)
+
+if __name__ == "__main__":
+    parsed_args = parser.parse_args()
+    parsed_args.func(parsed_args)
