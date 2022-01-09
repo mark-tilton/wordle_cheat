@@ -88,6 +88,8 @@ def play_game(goal_word, input_source=input, display=lambda _="": ()):
 
 
 def check_word(word, game_state: GameState):
+    if word == "these":
+        pass
     # Has the word already been guessed?
     if word in game_state.guesses:
         return False
@@ -101,6 +103,13 @@ def check_word(word, game_state: GameState):
     for wl, fl in zip(word, game_state.found_letters):
         if fl != None and fl != wl:
             return False
+
+    # Are there any loose letters that are being tried again in the same spot?
+    for l in game_state.loose_letters:
+        for guess in game_state.guesses:
+            for i, gl in enumerate(guess):
+                if l == gl and word[i] == l and game_state.found_letters[i] == None:
+                    return False
 
     # Create a pool of remaining letters to match against
     guess_letters = [l for l in word]
@@ -273,7 +282,7 @@ def tune_rules(rules, num_iterations, learning_rate):
     score = eval(rules)
     for _ in range(num_iterations):
         for sign in [1, -1]:
-        for rule, _ in rules.items():
+            for rule, _ in rules.items():
                 new_rules = rules.copy()
                 new_rules[rule] += learning_rate * sign
                 new_score = eval(new_rules)
@@ -283,25 +292,25 @@ def tune_rules(rules, num_iterations, learning_rate):
     return rules
 
 
-# play_game("words", pick_best_word_v3, print)
+# play_game("these", pick_best_word_v1, print)
 
 # print("V1")
 # evaluate_strategy(pick_best_word_v1)
 
-# print("V2")
-# evaluate_strategy(pick_best_word_v2)
+print("V2")
+evaluate_strategy(pick_best_word_v2)
 
-print("V3")
+# print("V3")
 # rules = {rule: 0.5 for rule in Rules}
-rules = {
-    Rules.REPEAT: 0,
-    Rules.LOOSE_ONLY: 1,
-    Rules.INVALID: 0,
-    Rules.FOUND: 1,
-}
-rules = tune_rules(rules, 1000, 0.05)
-print(rules)
-evaluate_strategy(lambda game_state: pick_best_word_v3(game_state, rules))
+# # rules = {
+# #     Rules.REPEAT: 0,
+# #     Rules.LOOSE_ONLY: 1,
+# #     Rules.INVALID: 0,
+# #     Rules.FOUND: 1,
+# # }
+# rules = tune_rules(rules, 1000, 0.05)
+# print(rules)
+# evaluate_strategy(lambda game_state: pick_best_word_v3(game_state, rules))
 
 # problem_word = find_problematic_word(pick_best_word_v3)
 # print(problem_word)
