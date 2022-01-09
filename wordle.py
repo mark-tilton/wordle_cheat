@@ -171,89 +171,6 @@ def pick_best_word_v2(game_state):
                key=lambda word: get_word_score(word, letter_score))
 
 
-def count_letter(word, letter):
-    letter_count = 0
-    for l in word:
-        if l == letter:
-            letter_count += 1
-    return letter_count
-
-
-class Rules(Enum):
-    # A penalty applied to repeated letters
-    REPEAT = 0
-    # A penalty applied to letters when the best case scenario is finding a loose letter
-    LOOSE_ONLY = 1
-    # A penalty applied to letters that are invalid
-    INVALID = 2
-    # A penalty applied to letters that have already been found in the position they are being checked in
-    FOUND = 3
-
-
-def pick_best_word_v3(game_state: GameState, rules):
-    """
-    Picks a guess based on the following heuristic
-    1. Use found spaces to explore remaining letters. Remaining letters should (preferrably) be explored
-       in the order of their prevalence in the remaining words.
-    2. Explore new positions for loose letters. This heuristic should stop us from getting stuck in loops
-       when an anagram is found.
-    Will provide invalid exploratory guesses
-    """
-    # If there is only one valid word left, return it.
-    valid_words = get_valid_words(game_state)
-    if len(valid_words) == 1:
-        return valid_words[0]
-
-    # Define the heuristic
-    valid_letter_score = get_letter_scores(valid_words)
-    found_letter_counter = Counter(game_state.found_letters)
-
-    def score_word(word):
-        score = 0
-        scored_letters = []
-        for i, (wl, fl) in enumerate(zip(word, game_state.found_letters)):
-            letter_score = valid_letter_score[wl]
-
-            # If we've already found this letter in this exact spot we will learn nothing new by
-            # providing this letter again.
-            if wl == fl:
-                letter_score *= rules[Rules.FOUND]
-
-            # If we know this letter is invalid, we can move on.
-            if wl in game_state.invalid_letters:
-                letter_score *= rules[Rules.INVALID]
-
-            # If we've already found all the occurences of this letter, there is no need to try it
-            if wl in game_state.found_letters:
-                max_attempts = max(count_letter(word, wl)
-                                   for word in game_state.guesses)
-                if max_attempts > found_letter_counter[wl] and wl not in game_state.loose_letters:
-                    letter_score *= rules[Rules.INVALID]
-
-            # If this is a loose letter and it's already been tried in this spot then we will learn
-            # nothing new by providing it in this spot again.
-            if wl in game_state.loose_letters:
-                letter_tried = False
-                for guess in game_state.guesses:
-                    if guess[i] == wl:
-                        letter_tried = True
-                        break
-                if letter_tried:
-                    letter_score *= rules[Rules.INVALID]
-
-            letter_score *= rules[Rules.REPEAT] ** count_letter(
-                scored_letters, wl)
-            if fl != None:
-                letter_score *= rules[Rules.LOOSE_ONLY]
-
-            score += letter_score
-            scored_letters += wl
-        return score
-
-    # Return the word with the highest score
-    return max(words, key=score_word)
-
-
 def evaluate_strategy(strategy, words=words):
     word_difficulty = Parallel(n_jobs=16)(delayed(play_game)(
         goal_word=word, input_source=strategy) for word in tqdm(words))
@@ -274,44 +191,10 @@ def find_problematic_word(strategy):
             return word
 
 
-def tune_rules(rules, num_iterations, learning_rate):
-    def eval(rules):
-        print(rules)
-        return evaluate_strategy(lambda game_state: pick_best_word_v3(
-            game_state, rules), random.sample(words, 100))
-    score = eval(rules)
-    for _ in range(num_iterations):
-        for sign in [1, -1]:
-            for rule, _ in rules.items():
-                new_rules = rules.copy()
-                new_rules[rule] += learning_rate * sign
-                new_score = eval(new_rules)
-                if new_score < score:
-                    rules[rule] = new_rules[rule]
-                    score = new_score
-    return rules
+play_game("these", pick_best_word_v1, print)
 
-
-# play_game("these", pick_best_word_v1, print)
-
-# print("V1")
-# evaluate_strategy(pick_best_word_v1)
+print("V1")
+evaluate_strategy(pick_best_word_v1)
 
 print("V2")
 evaluate_strategy(pick_best_word_v2)
-
-# print("V3")
-# rules = {rule: 0.5 for rule in Rules}
-# # rules = {
-# #     Rules.REPEAT: 0,
-# #     Rules.LOOSE_ONLY: 1,
-# #     Rules.INVALID: 0,
-# #     Rules.FOUND: 1,
-# # }
-# rules = tune_rules(rules, 1000, 0.05)
-# print(rules)
-# evaluate_strategy(lambda game_state: pick_best_word_v3(game_state, rules))
-
-# problem_word = find_problematic_word(pick_best_word_v3)
-# print(problem_word)
-# play_game(problem_word, pick_best_word_v3, print)
