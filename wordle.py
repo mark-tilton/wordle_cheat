@@ -199,19 +199,21 @@ def find_problematic_word(strategy):
 
 
 def parse_strategy(args):
-    strategy = None
-    if args.strategy.upper() == "V1":
-        strategy = pick_best_word_v1
-    if args.strategy.upper() == "V2":
-        strategy = pick_best_word_v2
-    if strategy == None:
-        raise Exception("Must select a valid strategy.")
+    strategy = pick_best_word_v2
+    if args.strategy:
+        if args.strategy.upper() == "V1":
+            strategy = pick_best_word_v1
+        if args.strategy.upper() == "V2":
+            strategy = pick_best_word_v2
     return strategy
 
 
 def evaluate(args):
     strategy = parse_strategy(args)
-    evaluate_strategy(strategy)
+    if args.word:
+        play_game(args.word, pick_best_word_v2, print)
+    else:
+        evaluate_strategy(strategy)
 
 
 def play(args):
@@ -265,6 +267,7 @@ subparsers = parser.add_subparsers()
 evaluate_parser = subparsers.add_parser(
     "evaluate", help="Evaluate a given strategy on all known words")
 evaluate_parser.add_argument("--strategy", help="The strategy to be evaluated")
+evaluate_parser.add_argument("--word", help="Evaluate the solver on a given word")
 evaluate_parser.set_defaults(func=evaluate)
 
 # Define the parser for playing a game
