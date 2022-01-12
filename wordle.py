@@ -1,4 +1,4 @@
-import argparse
+import click
 import random
 
 from tqdm import tqdm
@@ -198,25 +198,29 @@ def find_problematic_word(strategy):
             return word
 
 
-def parse_strategy(args):
-    strategy = pick_best_word_v2
-    if args.strategy:
-        if args.strategy.upper() == "V1":
-            strategy = pick_best_word_v1
-        if args.strategy.upper() == "V2":
-            strategy = pick_best_word_v2
-    return strategy
+def parse_strategy(strategy):
+    strategy_func = pick_best_word_v2
+    if strategy.upper() == "V1":
+        strategy_func = pick_best_word_v1
+    if strategy.upper() == "V2":
+        strategy_func = pick_best_word_v2
+    return strategy_func
 
 
-def evaluate(args):
-    strategy = parse_strategy(args)
-    if args.word:
-        play_game(args.word, pick_best_word_v2, print)
+@click.command()
+@click.option("--strategy", default="v2", help="Pick which strategy to evaluate")
+@click.option("--word", default=None, help="Optionally evaluate a single word")
+def evaluate(strategy, word):
+    strategy_func = parse_strategy(strategy)
+    if word:
+        play_game(word, pick_best_word_v2, print)
     else:
-        evaluate_strategy(strategy)
+        evaluate_strategy(strategy_func)
 
 
-def play(args):
+@click.command()
+@click.option("--hardmode", default=False, help="Play on hard mode")
+def play(hardmode):
     def make_guess(game_state):
         guess = ""
         while True:
@@ -224,7 +228,7 @@ def play(args):
             if guess not in words:
                 print("Guess must be a valid word, try again.")
                 continue
-            if args.hardmode and not check_word(guess, game_state):
+            if hardmode and not check_word(guess, game_state):
                 print("In hard mode every guess must be a valid answer, try again.")
                 continue
             break
@@ -232,11 +236,13 @@ def play(args):
     play_game(random.sample(words, 1)[0], make_guess, print)
 
 
-def cheat(args):
-    strategy = parse_strategy(args)
+@click.command()
+@click.option("--strategy", default="v2", help="Pick which strategy to use to cheat")
+def cheat(strategy):
+    strategy_func = parse_strategy(strategy)
     game_state = GameState()
     while True:
-        guess = strategy(game_state)
+        guess = strategy_func(game_state)
         print(f"Try word: {guess}")
         loose_letters = input(
             "Please enter ALL loose letters separated by spaces: ")
@@ -259,31 +265,12 @@ def cheat(args):
             return
         print(game_state)
 
-
-parser = argparse.ArgumentParser()
-subparsers = parser.add_subparsers()
-
-# Define the evaluate parser
-evaluate_parser = subparsers.add_parser(
-    "evaluate", help="Evaluate a given strategy on all known words")
-evaluate_parser.add_argument("--strategy", help="The strategy to be evaluated")
-evaluate_parser.add_argument("--word", help="Evaluate the solver on a given word")
-evaluate_parser.set_defaults(func=evaluate)
-
-# Define the parser for playing a game
-play_parser = subparsers.add_parser(
-    "play", help="Play a game with a random word")
-play_parser.add_argument(
-    "--hardmode", help="Play the game on hard mode. In hard mode every guess must be a valid answer.", action='store_true')
-play_parser.set_defaults(func=play)
-
-# Define the parser for cheating
-cheat_parser = subparsers.add_parser(
-    "cheat", help="Interactively solve an unknown word with the given strategy")
-cheat_parser.add_argument(
-    "--strategy", help="The strategy to use when solving the word", default="V2")
-cheat_parser.set_defaults(func=cheat)
+@click.group()
+def cli():
+    pass
 
 if __name__ == "__main__":
-    parsed_args = parser.parse_args()
-    parsed_args.func(parsed_args)
+    cli.add_command(evaluate)
+    cli.add_command(play)
+    cli.add_command(cheat)
+    cli()
