@@ -199,16 +199,16 @@ def find_problematic_word(strategy):
 
 
 def parse_strategy(strategy):
-    strategy_func = pick_best_word_v2
     if strategy.upper() == "V1":
-        strategy_func = pick_best_word_v1
+        return pick_best_word_v1
     if strategy.upper() == "V2":
-        strategy_func = pick_best_word_v2
-    return strategy_func
+        return pick_best_word_v2
 
 
 @click.command()
-@click.option("--strategy", default="v2", help="Pick which strategy to evaluate")
+@click.option("--strategy", default="v2", 
+        type=click.Choice(["v1", "v2"], case_sensitive=False), 
+        help="Pick which strategy to evaluate")
 @click.option("--word", default=None, help="Optionally evaluate a single word")
 def evaluate(strategy, word):
     strategy_func = parse_strategy(strategy)
@@ -219,8 +219,9 @@ def evaluate(strategy, word):
 
 
 @click.command()
-@click.option("--hardmode", default=False, help="Play on hard mode")
-def play(hardmode):
+@click.option("--hardmode", flag_value=True, help="Play on hard mode")
+@click.option("--word", default=None, help="Play against a specific word")
+def play(hardmode, word):
     def make_guess(game_state):
         guess = ""
         while True:
@@ -233,11 +234,15 @@ def play(hardmode):
                 continue
             break
         return guess
-    play_game(random.sample(words, 1)[0], make_guess, print)
+    if not word:
+        word = random.choice(words)
+    play_game(word, make_guess, print)
 
 
 @click.command()
-@click.option("--strategy", default="v2", help="Pick which strategy to use to cheat")
+@click.option("--strategy", default="v2", 
+        type=click.Choice(["v1", "v2"], case_sensitive=False), 
+        help="Pick which strategy to use")
 def cheat(strategy):
     strategy_func = parse_strategy(strategy)
     game_state = GameState()
