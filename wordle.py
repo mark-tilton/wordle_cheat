@@ -102,8 +102,6 @@ def play_game(goal_word, input_source, display=lambda _="": ()):
 
 
 def check_word(word, game_state: GameState):
-    if word == "these":
-        pass
     # Has the word already been guessed?
     if word in game_state.guesses:
         return False
