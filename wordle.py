@@ -28,6 +28,13 @@ class GameState:
     def turns(self):
         return len(self.guesses)
 
+    def clone(self):
+        return GameState(
+                found_letters=self.found_letters.copy(),
+                loose_letters=self.loose_letters.copy(),
+                invalid_letters=self.invalid_letters.copy(),
+                guesses=self.guesses.copy())
+
     def add_guess(self, guess_word, goal_word):
         self.guesses.append(guess_word)
 
@@ -178,6 +185,26 @@ def pick_best_word_v2(game_state):
                key=lambda word: get_word_score(word, letter_score))
 
 
+def pick_best_word_v3(game_state: GameState):
+    valid_words = get_valid_words(game_state)
+    best_word = ""
+    best_score = 1e6
+    for word in words: # Every word is a candidate
+        # If this word was chosen, how many valid words could be eliminated?
+        total = 0
+        for valid_word in valid_words:
+            new_game_state = game_state.clone()
+            new_game_state.add_guess(word, valid_word)
+            total += len(get_valid_words(new_game_state))
+        score = total / len(valid_words)
+        if score < best_score:
+            best_score = score
+            best_word = word
+    print("TEST")
+    return best_word
+
+
+
 def evaluate_strategy(strategy, words=words):
     word_difficulty = Parallel(n_jobs=16)(delayed(play_game)(
         goal_word=word, input_source=strategy) for word in tqdm(words))
@@ -203,17 +230,19 @@ def parse_strategy(strategy):
         return pick_best_word_v1
     if strategy.upper() == "V2":
         return pick_best_word_v2
+    if strategy.upper() == "V3":
+        return pick_best_word_v3
 
 
 @click.command()
 @click.option("--strategy", default="v2", 
-        type=click.Choice(["v1", "v2"], case_sensitive=False), 
+        type=click.Choice(["v1", "v2", "v3"], case_sensitive=False), 
         help="Pick which strategy to evaluate")
 @click.option("--word", default=None, help="Optionally evaluate a single word")
 def evaluate(strategy, word):
     strategy_func = parse_strategy(strategy)
     if word:
-        play_game(word, pick_best_word_v2, print)
+        play_game(word, strategy_func, print)
     else:
         evaluate_strategy(strategy_func)
 
@@ -241,7 +270,7 @@ def play(hardmode, word):
 
 @click.command()
 @click.option("--strategy", default="v2", 
-        type=click.Choice(["v1", "v2"], case_sensitive=False), 
+        type=click.Choice(["v1", "v2", "v3"], case_sensitive=False), 
         help="Pick which strategy to use")
 def cheat(strategy):
     strategy_func = parse_strategy(strategy)
