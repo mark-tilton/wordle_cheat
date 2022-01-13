@@ -30,10 +30,10 @@ class GameState:
 
     def clone(self):
         return GameState(
-                found_letters=self.found_letters.copy(),
-                loose_letters=self.loose_letters.copy(),
-                invalid_letters=self.invalid_letters.copy(),
-                guesses=self.guesses.copy())
+            found_letters=self.found_letters.copy(),
+            loose_letters=self.loose_letters.copy(),
+            invalid_letters=self.invalid_letters.copy(),
+            guesses=self.guesses.copy())
 
     def add_guess(self, guess_word, goal_word):
         self.guesses.append(guess_word)
@@ -187,7 +187,7 @@ def pick_best_word_v3(game_state: GameState):
     valid_words = get_valid_words(game_state)
     best_word = ""
     best_score = 1e6
-    for word in words: # Every word is a candidate
+    for word in words:  # Every word is a candidate
         # If this word was chosen, how many valid words could be eliminated?
         total = 0
         for valid_word in valid_words:
@@ -200,7 +200,6 @@ def pick_best_word_v3(game_state: GameState):
             best_word = word
     print("TEST")
     return best_word
-
 
 
 def evaluate_strategy(strategy, words=words):
@@ -233,9 +232,9 @@ def parse_strategy(strategy):
 
 
 @click.command()
-@click.option("--strategy", default="v2", 
-        type=click.Choice(["v1", "v2", "v3"], case_sensitive=False), 
-        help="Pick which strategy to evaluate")
+@click.option("--strategy", default="v2",
+              type=click.Choice(["v1", "v2", "v3"], case_sensitive=False),
+              help="Pick which strategy to evaluate")
 @click.option("--word", default=None, help="Optionally evaluate a single word")
 def evaluate(strategy, word):
     strategy_func = parse_strategy(strategy)
@@ -267,39 +266,52 @@ def play(hardmode, word):
 
 
 @click.command()
-@click.option("--strategy", default="v2", 
-        type=click.Choice(["v1", "v2", "v3"], case_sensitive=False), 
-        help="Pick which strategy to use")
+@click.option("--strategy", default="v2",
+              type=click.Choice(["v1", "v2", "v3"], case_sensitive=False),
+              help="Pick which strategy to use")
 def cheat(strategy):
     strategy_func = parse_strategy(strategy)
     game_state = GameState()
     while True:
+        # Generate a guess
         guess = strategy_func(game_state)
         print(f"Try word: {guess}")
-        loose_letters = input(
-            "Please enter ALL loose letters separated by spaces: ")
+
+        # Ask for some input about the game state
         found_letters = input(
             "Please input the word so far using \"-\" in place of missing letters: ")
+        loose_letters = input(
+            "Please enter ALL loose letters separated by spaces: ")
+
+        # Add the guess to the game state
         game_state.guesses.append(guess)
-        game_state.loose_letters = loose_letters.split(" ")
+
         # If split returns an empty string, remove it from the loose letters
-        if "" in game_state.loose_letters:
-            game_state.loose_letters.remove("")
         for i, l in enumerate(found_letters):
             if l != "-":
                 game_state.found_letters[i] = l
+
+        # Hooray if we got it!
+        if all(game_state.found_letters):
+            print("We did it!")
+            return
+
+        # Add loose letters to the game state
+        game_state.loose_letters = list(loose_letters)
+
+        # Add invalid letters to the game state
         for word in game_state.guesses:
             for l in word:
                 if l not in game_state.found_letters and l not in game_state.loose_letters:
                     game_state.invalid_letters.add(l)
-        if all(game_state.found_letters):
-            print("We did it!")
-            return
+
         print(game_state)
+
 
 @click.group()
 def cli():
     pass
+
 
 if __name__ == "__main__":
     cli.add_command(evaluate)
