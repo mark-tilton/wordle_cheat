@@ -113,12 +113,11 @@ def check_word(word, game_state: GameState):
     # Scan through the found letters
     for wl, fl in zip(word, game_state.found_letters):
         if fl != None:
-            if wl == fl:
-                # This letter has been found, remove it from the pool
-                guess_letters.remove(fl)
-            else:
+            if wl != fl:
                 # Found letter is in the incorrect spot
                 return False
+            # This letter has been found, remove it from the pool
+            guess_letters.remove(fl)
 
     # Are ALL loose letters contained within the remaining letters?
     for l in game_state.loose_letters:
