@@ -139,10 +139,6 @@ def play_game(goal_word, input_source, display=lambda _="": ()):
     return turn
 
 
-def get_valid_words(game_state: GameState):
-    return [word for word in game_state.valid_guesses]
-
-
 def get_letter_scores(words):
     all_letters = (letter for word in words for letter in word)
     return Counter(all_letters)
@@ -165,7 +161,7 @@ def pick_best_word_v1(game_state: GameState):
     Picks the highest scoring word that is still possible and hasn't already been guessed
     Only provides valid guesses
     """
-    return next(word for word in sorted_words if word in game_state.valid_guesses)
+    return next(word for word in sorted_words if game_state.check_word(word))
 
 
 def pick_best_word_v2(game_state):
@@ -175,9 +171,8 @@ def pick_best_word_v2(game_state):
     2. Recalculate letter scores for the remaining letters
     Only provides valid guesses
     """
-    valid_words = get_valid_words(game_state)
-    letter_score = get_letter_scores(valid_words)
-    return max(valid_words, key=lambda word: get_word_score(word, letter_score))
+    letter_score = get_letter_scores(game_state.valid_guesses)
+    return max(game_state.valid_guesses, key=lambda word: get_word_score(word, letter_score))
 
 
 def pick_best_word_v3(game_state: GameState):
@@ -185,10 +180,9 @@ def pick_best_word_v3(game_state: GameState):
     Same as V2 but will consider all words. 
     When there is only one valid word left, it will guess it.
     """
-    valid_words = get_valid_words(game_state)
-    if len(valid_words) == 1:
-        return valid_words[0]
-    letter_score = get_letter_scores(valid_words)
+    if len(game_state.valid_guesses) == 1:
+        return game_state.valid_guesses[0]
+    letter_score = get_letter_scores(game_state.valid_guesses)
     return max(words, key=lambda word: get_word_score(word, letter_score))
 
 
@@ -259,7 +253,7 @@ def play(hardmode, word):
             if guess not in words:
                 print("Guess must be a valid word, try again.")
                 continue
-            if hardmode and not guess in game_state.valid_guesses:
+            if hardmode and not game_state.check_word(guess):
                 print("In hard mode every guess must be a valid answer, try again.")
                 continue
             break
