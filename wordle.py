@@ -102,10 +102,6 @@ def play_game(goal_word, input_source, display=lambda _="": ()):
 
 
 def check_word(word, game_state: GameState):
-    # Has the word already been guessed?
-    if word in game_state.guesses:
-        return False
-
     # Does the word contain invalid letters?
     for l in word:
         if l in game_state.invalid_letters:
@@ -116,21 +112,14 @@ def check_word(word, game_state: GameState):
         if fl != None and fl != wl:
             return False
 
-    # Are there any loose letters that are being tried again in the same spot?
-    for l in game_state.loose_letters:
-        for guess in game_state.guesses:
-            for i, gl in enumerate(guess):
-                if l == gl and word[i] == l and game_state.found_letters[i] == None:
-                    return False
-
-    # Create a pool of remaining letters to match against
+    # # Create a pool of remaining letters to match against
     guess_letters = [l for l in word]
     for i, found_letter in enumerate(game_state.found_letters):
         if found_letter != None:
             if word[i] == found_letter:
                 guess_letters.remove(found_letter)
 
-    # Are ALL loose letters contained within the remaining letters?
+    # # Are ALL loose letters contained within the remaining letters?
     for l in game_state.loose_letters:
         if l in guess_letters:
             # If there are two of the same letter, there need to be two in the word as well
@@ -138,10 +127,17 @@ def check_word(word, game_state: GameState):
         else:
             return False
 
+    # Are there any loose letters that are being tried again in the same spot?
+    for l in game_state.loose_letters:
+        for guess in game_state.guesses:
+            for i, gl in enumerate(guess):
+                if l == gl and word[i] == l and game_state.found_letters[i] == None:
+                    return False
+
     return True
 
 
-def get_valid_words(game_state):
+def get_valid_words(game_state: GameState):
     return [word for word in words if check_word(word, game_state)]
 
 
@@ -190,7 +186,7 @@ def pick_best_word_v3(game_state: GameState):
     for word in words:  # Every word is a candidate
         # If this word was chosen, how many valid words could be eliminated?
         total = 0
-        for valid_word in valid_words:
+        for valid_word in tqdm(valid_words):
             new_game_state = game_state.clone()
             new_game_state.add_guess(word, valid_word)
             total += len(get_valid_words(new_game_state))
@@ -198,7 +194,6 @@ def pick_best_word_v3(game_state: GameState):
         if score < best_score:
             best_score = score
             best_word = word
-    print("TEST")
     return best_word
 
 
