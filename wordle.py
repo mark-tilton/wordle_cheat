@@ -107,19 +107,20 @@ def check_word(word, game_state: GameState):
         if l in game_state.invalid_letters:
             return False
 
-    # Are all the found letters in the correct spot?
-    for wl, fl in zip(word, game_state.found_letters):
-        if fl != None and fl != wl:
-            return False
-
-    # # Create a pool of remaining letters to match against
+    # Create a pool of remaining letters to match against
     guess_letters = [l for l in word]
-    for i, found_letter in enumerate(game_state.found_letters):
-        if found_letter != None:
-            if word[i] == found_letter:
-                guess_letters.remove(found_letter)
 
-    # # Are ALL loose letters contained within the remaining letters?
+    # Scan through the found letters
+    for wl, fl in zip(word, game_state.found_letters):
+        if fl != None:
+            if wl == fl:
+                # This letter has been found, remove it from the pool
+                guess_letters.remove(fl)
+            else:
+                # Found letter is in the incorrect spot
+                return False
+
+    # Are ALL loose letters contained within the remaining letters?
     for l in game_state.loose_letters:
         if l in guess_letters:
             # If there are two of the same letter, there need to be two in the word as well
@@ -127,8 +128,8 @@ def check_word(word, game_state: GameState):
         else:
             return False
 
-    # Are there any loose letters that are being tried again in the same spot?
-    for l in game_state.loose_letters:
+    # Are there any letters that are being tried again in the same spot?
+    for l in word:
         for guess in game_state.guesses:
             for i, gl in enumerate(guess):
                 if l == gl and word[i] == l and game_state.found_letters[i] == None:
