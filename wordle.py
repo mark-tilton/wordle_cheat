@@ -1,4 +1,3 @@
-from imp import get_magic
 import click
 import random
 
@@ -24,6 +23,7 @@ class GameState:
     loose_letters: List[str] = field(default_factory=list)
     invalid_letters: Set[str] = field(default_factory=set)
     guesses: List[str] = field(default_factory=list)
+    valid_guesses: List[str] = field(default_factory=words.copy)
 
     @property
     def turns(self):
@@ -35,6 +35,40 @@ class GameState:
             loose_letters=self.loose_letters.copy(),
             invalid_letters=self.invalid_letters.copy(),
             guesses=self.guesses.copy())
+
+    def check_word(self, word):
+        # Does the word contain invalid letters?
+        for l in word:
+            if l in self.invalid_letters:
+                return False
+
+        # Create a pool of remaining letters to match against
+        guess_letters = [l for l in word]
+
+        # Scan through the found letters
+        for wl, fl in zip(word, self.found_letters):
+            if fl != None:
+                if wl != fl:
+                    # Found letter is in the incorrect spot
+                    return False
+                # This letter has been found, remove it from the pool
+                guess_letters.remove(fl)
+
+        # Are ALL loose letters contained within the remaining letters?
+        for l in self.loose_letters:
+            if l in guess_letters:
+                # If there are two of the same letter, there need to be two in the word as well
+                guess_letters.remove(l)
+            else:
+                return False
+
+        # Are there any letters that are being tried again in the same spot?
+        for guess in self.guesses:
+            for wl, gl, fl in zip(word, guess, self.found_letters):
+                if not fl and wl == gl:
+                    return False
+
+        return True
 
     def add_guess(self, guess_word, goal_word):
         self.guesses.append(guess_word)
@@ -72,6 +106,9 @@ class GameState:
             if l not in goal_word:
                 self.invalid_letters.add(l)
 
+        self.valid_guesses = [
+            word for word in self.valid_guesses if self.check_word(word)]
+
 
 MAX_TURNS = 16
 
@@ -102,43 +139,8 @@ def play_game(goal_word, input_source, display=lambda _="": ()):
     return turn
 
 
-def check_word(word, game_state: GameState):
-    # Does the word contain invalid letters?
-    for l in word:
-        if l in game_state.invalid_letters:
-            return False
-
-    # Create a pool of remaining letters to match against
-    guess_letters = [l for l in word]
-
-    # Scan through the found letters
-    for wl, fl in zip(word, game_state.found_letters):
-        if fl != None:
-            if wl != fl:
-                # Found letter is in the incorrect spot
-                return False
-            # This letter has been found, remove it from the pool
-            guess_letters.remove(fl)
-
-    # Are ALL loose letters contained within the remaining letters?
-    for l in game_state.loose_letters:
-        if l in guess_letters:
-            # If there are two of the same letter, there need to be two in the word as well
-            guess_letters.remove(l)
-        else:
-            return False
-
-    # Are there any letters that are being tried again in the same spot?
-    for guess in game_state.guesses:
-        for wl, gl, fl in zip(word, guess, game_state.found_letters):
-            if not fl and wl == gl:
-                return False
-
-    return True
-
-
 def get_valid_words(game_state: GameState):
-    return [word for word in words if check_word(word, game_state)]
+    return [word for word in game_state.valid_guesses]
 
 
 def get_letter_scores(words):
@@ -157,13 +159,13 @@ sorted_words = sorted(
     global_word_score, key=global_word_score.get, reverse=True)
 
 
-def pick_best_word_v1(game_state):
+def pick_best_word_v1(game_state: GameState):
     """
     Pick the best word based on global letter scores.  
     Picks the highest scoring word that is still possible and hasn't already been guessed
     Only provides valid guesses
     """
-    return next(word for word in sorted_words if check_word(word, game_state))
+    return next(word for word in sorted_words if word in game_state.valid_guesses)
 
 
 def pick_best_word_v2(game_state):
@@ -257,7 +259,7 @@ def play(hardmode, word):
             if guess not in words:
                 print("Guess must be a valid word, try again.")
                 continue
-            if hardmode and not check_word(guess, game_state):
+            if hardmode and not guess in game_state.valid_guesses:
                 print("In hard mode every guess must be a valid answer, try again.")
                 continue
             break
