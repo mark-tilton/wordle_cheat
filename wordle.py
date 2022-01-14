@@ -128,11 +128,9 @@ def check_word(word, game_state: GameState):
             return False
 
     # Are there any letters that are being tried again in the same spot?
-    for i, l in enumerate(word):
-        if game_state.found_letters[i] != None:
-            continue
-        for guess in game_state.guesses:
-            if l == guess[i]:
+    for guess in game_state.guesses:
+        for wl, gl, fl in zip(word, guess, game_state.found_letters):
+            if not fl and wl == gl:
                 return False
 
     return True
