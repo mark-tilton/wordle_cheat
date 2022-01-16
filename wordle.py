@@ -191,10 +191,25 @@ def pick_best_word_v4(game_state: GameState):
     Uses v3 for the first few guesses, then uses v2
     """
     turn = len(game_state.guesses)
-    if turn < 3:
+    if turn < 4:
         return pick_best_word_v3(game_state)
     else:
         return pick_best_word_v2(game_state)
+
+
+def pick_best_word_v5(game_state: GameState):
+    def eval_word(word):
+        score = 0
+        for valid_word in game_state.valid_guesses:
+            new_state = game_state.clone()
+            new_state.add_guess(word, valid_word)
+            score += len(new_state.valid_guesses)
+        score = score / len(game_state.valid_guesses)
+        return score
+
+    word_scores = Parallel(n_jobs=16)(
+        delayed(eval_word)(word=word) for word in tqdm(words))
+    return min(word_scores)
 
 
 def evaluate_strategy(strategy, words=words):
@@ -225,12 +240,14 @@ def parse_strategy(strategy):
     if strategy.upper() == "V3":
         return pick_best_word_v3
     if strategy.upper() == "V4":
-        return pick_best_word_v3
+        return pick_best_word_v4
+    if strategy.upper() == "V5":
+        return pick_best_word_v5
 
 
 @click.command()
 @click.option("--strategy", default="v2",
-              type=click.Choice(["v1", "v2", "v3", "v4"],
+              type=click.Choice(["v1", "v2", "v3", "v4", "v5"],
                                 case_sensitive=False),
               help="Pick which strategy to evaluate")
 @click.option("--word", default=None, help="Optionally evaluate a single word")
@@ -265,7 +282,7 @@ def play(hardmode, word):
 
 @click.command()
 @click.option("--strategy", default="v2",
-              type=click.Choice(["v1", "v2", "v3", "v4"],
+              type=click.Choice(["v1", "v2", "v3", "v4", "v5"],
                                 case_sensitive=False),
               help="Pick which strategy to use")
 def cheat(strategy):
